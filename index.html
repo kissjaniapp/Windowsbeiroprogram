@@ -294,24 +294,49 @@ async function doSave(){
 const roundCols=()=>{const c=[];if(mode=='both')for(let k=0;k<GK;k++)c.push(['G'+(k+1),'gyak',k]);for(let k=0;k<EK;k++)c.push(['É'+(k+1),'eles',k]);return c};
 const rowsCur=()=>ranking().map(r=>({...r,name:nm(r.c),D}));
 const r2=v=>+v.toFixed(2);
-function sumAoa(rows,showFut){
-  const cols=roundCols(),h=['Hely','Név'];
-  if(showFut)h.push('Futam');
-  h.push('Össz pont');if(useTime)h.push('Össz idő');h.push('Végeredmény');
-  cols.forEach(c=>{if(useTime)h.push(c[0]+' pont',c[0]+' idő',c[0]+' rész');else h.push(c[0]+' pont')});
-  const a=[h];
-  rows.forEach(r=>{
-    const l=[r.pl,r.name];if(showFut)l.push(r.fut);
-    l.push(r.pp);if(useTime)l.push(r2(r.ii));l.push(r2(r.s));
-    cols.forEach(c=>{
-      const e=r.D[c[1]][c[2]]&&r.D[c[1]][c[2]][r.c];
-      if(!e){l.push('');if(useTime)l.push('','')}
-      else if(useTime)l.push(e.p,e.i,e.v?r2(e.r):'kifutott');
-      else l.push(e.p);
-    });
-    a.push(l);
+const BT=(st,c)=>({style:st,color:{rgb:c}});
+const BD=(st,c)=>({top:BT(st,c),bottom:BT(st,c),left:BT(st,c),right:BT(st,c)});
+const AL={horizontal:'center',vertical:'center',wrapText:true};
+const FILL=c=>({patternType:'solid',fgColor:{rgb:c}});
+function sumWs(rows,showFut){
+  const cols=roundCols(),ut=useTime,rpr=ut?2:1,H=[ 'Hely','Név'];
+  if(showFut)H.push('Futam');
+  const c0=H.length;cols.forEach(c=>H.push(c[0]));
+  const tp=H.length;if(ut)H.push('Össz pont','Össz idő');
+  const sep=H.length;H.push('');
+  const fin=H.length;H.push('Végeredmény');
+  const ws={},mg=[],put=(r,c,v,st,z)=>{ws[XLSX.utils.encode_cell({r,c})]={v,t:typeof v=='number'?'n':'s',s:st,z}};
+  const thin=BD('thin','BBBBBB'),med=BD('medium','000000');
+  H.forEach((h,k)=>{
+    if(k==sep)return;
+    const cc=k-c0,g=cc>=0&&cc<cols.length&&cols[cc][1]=='gyak',e=cc>=0&&cc<cols.length&&!g;
+    put(0,k,h,{font:{bold:true,sz:k==fin?13:11,color:{rgb:g?'BBBBBB':e?'7FDBF5':'FFFFFF'}},fill:FILL('252540'),alignment:AL,border:k==fin?med:BD('thin','888888')});
   });
-  return a;
+  const medal={1:'FFD93D',2:'CFD8DC',3:'E29A5B'};
+  rows.forEach((r,i)=>{
+    const A=1+i*rpr,B=A+1;
+    const cell=(c,v,st,z)=>{put(A,c,v,st,z);if(ut)put(B,c,'',st)};
+    const base={alignment:AL,border:thin};
+    cell(0,r.pl,{...base,font:{bold:true,sz:12},fill:medal[r.pl]?FILL(medal[r.pl]):undefined});
+    cell(1,r.name,{...base,font:{bold:true,sz:12},alignment:{horizontal:'left',vertical:'center'}});
+    if(showFut)cell(2,r.fut,base);
+    if(ut){cell(tp,r.pp,{...base,font:{sz:12}});cell(tp+1,r2(r.ii),{...base,font:{sz:12}},'0.00')}
+    cell(fin,r2(r.s),{alignment:AL,border:med,font:{bold:true,sz:14,color:{rgb:'007A63'}}},'0.00');
+    if(ut)[0,1,...(showFut?[2]:[]),tp,tp+1,fin].forEach(c=>mg.push({s:{r:A,c},e:{r:B,c}}));
+    cols.forEach((c,k)=>{
+      const e=r.D[c[1]][c[2]]&&r.D[c[1]][c[2]][r.c],g=c[1]=='gyak',col=g?'808080':'000000';
+      let v='',bad=false;
+      if(e){if(ut){bad=!e.v;v=bad?'kifutott':r2(e.r)}else v=e.p}
+      put(A,c0+k,v,{alignment:AL,border:ut?{...thin,bottom:BT('hair','BBBBBB')}:thin,font:{bold:true,sz:12,color:{rgb:bad?'FF0000':col}}},ut?'0.00':'0');
+      if(ut)put(B,c0+k,e?`${e.p} | ${f2(e.i)}`:'',{alignment:AL,border:{...thin,top:BT('hair','BBBBBB')},font:{sz:9,color:{rgb:'808080'}}});
+    });
+  });
+  const last=rows.length*rpr;
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:Math.max(last,0),c:H.length-1}});
+  ws['!merges']=mg;
+  ws['!cols']=H.map((h,k)=>({wch:k==0?7:k==1?24:k==sep?3:k==fin?16:(showFut&&k==2)?8:k>=tp&&k<sep?11:10}));
+  ws['!rows']=[{hpt:24},...rows.flatMap(()=>ut?[{hpt:22},{hpt:15}]:[{hpt:22}])];
+  return ws;
 }
 function riderAoa(c){
   const me=ranking().find(r=>r.c==c),a=[];
@@ -327,24 +352,36 @@ function riderAoa(c){
   a.push([]);a.push(['Össz pont',me.pp]);if(useTime)a.push(['Össz idő',r2(me.ii)]);a.push(['Végeredmény (éles)',r2(me.s)]);
   return a;
 }
-function addSheet(wb,aoa,name,used){
+function addWs(wb,ws,name,used){
   let n=name.replace(/[\[\]:*?\/\\]/g,' ').trim().slice(0,31)||'Lap';const b=n;let i=2;
   while(used.has(n.toLowerCase()))n=b.slice(0,27)+' '+i++;
   used.add(n.toLowerCase());
-  const ws=XLSX.utils.aoa_to_sheet(aoa);ws['!cols']=[{wch:16},{wch:26}];
   XLSX.utils.book_append_sheet(wb,ws,n);
+}
+function addRider(wb,c,name,used){
+  const aoa=riderAoa(c),ws=XLSX.utils.aoa_to_sheet(aoa),w=aoa[4].length;
+  const st=(r,k,o)=>{const a=XLSX.utils.encode_cell({r,c:k});if(!ws[a])ws[a]={v:'',t:'s'};ws[a].s=o};
+  st(0,0,{font:{bold:true,sz:16,color:{rgb:'007A63'}}});
+  for(let k=0;k<w;k++)st(4,k,{font:{bold:true,color:{rgb:'FFFFFF'}},fill:FILL('252540'),alignment:AL,border:BD('thin','888888')});
+  for(let r=5;r<aoa.length-1;r++){if(aoa[r].length>=w)for(let k=0;k<w;k++)st(r,k,{alignment:AL,border:BD('thin','BBBBBB'),font:{sz:11,color:{rgb:aoa[r][0]=='Gyakorló'?'808080':'000000'}}})}
+  for(let r=5;r<aoa.length;r++)aoa[r].forEach((v,k)=>{const c=ws[XLSX.utils.encode_cell({r,c:k})];if(c&&typeof v=='number'&&((aoa[r].length>=4&&k>=(useTime?3:3))||(aoa[r].length==2&&k==1&&/idő|Végeredmény/.test(aoa[r][0]))))c.z='0.00'});
+  const lr=aoa.length-1;
+  st(lr,0,{font:{bold:true,sz:13},border:BD('medium','000000')});
+  st(lr,1,{font:{bold:true,sz:14,color:{rgb:'007A63'}},alignment:AL,border:BD('medium','000000')});
+  ws['!cols']=[{wch:20},{wch:10},{wch:10},{wch:10},{wch:12},{wch:12}];
+  addWs(wb,ws,name,used);
 }
 function excelFor(v){
   const wb=XLSX.utils.book_new(),u=new Set(),d=$('datum').value||'futam',multi=futams.length>1;
   const pf=futams.map((F,f)=>f).filter(f=>played(futams[f]));
-  const futSheet=f=>withF(f,()=>addSheet(wb,sumAoa(rowsCur(),false),multi?`${f+1}. futam`:'Sorrend',u));
+  const futSheet=f=>withF(f,()=>addWs(wb,sumWs(rowsCur(),false),multi?`${f+1}. futam`:'Sorrend',u));
   let name=`eredmeny_${d}`;const fp=multi?'_f'+(fi+1):'';
-  if(v=='allF'){addSheet(wb,sumAoa(allRows(),true),'Összesített',u);pf.forEach(futSheet);name+='_osszes_futam'}
+  if(v=='allF'){addWs(wb,sumWs(allRows(),true),'Összesített',u);pf.forEach(futSheet);name+='_osszes_futam'}
   else if(v=='byF'){pf.forEach(futSheet);name+='_futamok'}
-  else if(v=='eachAll'){pf.forEach(f=>withF(f,()=>ranking().forEach(r=>addSheet(wb,riderAoa(r.c),`F${f+1} ${r.pl}. ${nm(r.c)}`,u))));name+='_versenyzok'}
-  else if(v=='all'){addSheet(wb,sumAoa(rowsCur(),false),'Sorrend',u);name+=fp+'_osszesitett'}
-  else if(v=='each'){ranking().forEach(r=>addSheet(wb,riderAoa(r.c),`${r.pl}. ${nm(r.c)}`,u));name+=fp+'_versenyzok'}
-  else{const r=ranking().find(x=>x.c==+v);addSheet(wb,riderAoa(r.c),`${r.pl}. ${nm(r.c)}`,u);name+=fp+'_'+r.pl+'_'+slug(nm(r.c))}
+  else if(v=='eachAll'){pf.forEach(f=>withF(f,()=>ranking().forEach(r=>addRider(wb,r.c,`F${f+1} ${r.pl}. ${nm(r.c)}`,u))));name+='_versenyzok'}
+  else if(v=='all'){addWs(wb,sumWs(rowsCur(),false),'Sorrend',u);name+=fp+'_osszesitett'}
+  else if(v=='each'){ranking().forEach(r=>addRider(wb,r.c,`${r.pl}. ${nm(r.c)}`,u));name+=fp+'_versenyzok'}
+  else{const r=ranking().find(x=>x.c==+v);addRider(wb,r.c,`${r.pl}. ${nm(r.c)}`,u);name+=fp+'_'+r.pl+'_'+slug(nm(r.c))}
   return {wb,name:name+'_'+stamp()+'.xlsx'};
 }
 function doExcel(){
