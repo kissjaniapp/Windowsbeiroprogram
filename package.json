@@ -16,12 +16,28 @@
   "build": {
     "appId": "hu.eredmenybeiro.app",
     "productName": "Eredmény beíró",
-    "files": ["main.js", "index.html", "icon.png", "icon.ico"],
+    "files": [
+      "main.js",
+      "index.html",
+      "icon.png",
+      "icon.ico",
+      "xlsx.full.min.js"
+    ],
     "win": {
       "icon": "icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
