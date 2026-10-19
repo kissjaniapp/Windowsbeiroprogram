@@ -1,0 +1,40 @@
+{
+  "name": "eredmeny-beiro",
+  "version": "1.0.0",
+  "description": "Eredmény beíró",
+  "author": "Eredmény beíró",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "hu.eredmenybeiro.app",
+    "productName": "Eredmény beíró",
+    "files": ["main.js", "index.html", "icon.png", "icon.ico"],
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Eredmény beíró",
+      "language": "1038",
+      "artifactName": "Eredmeny-beiro-Telepito.${ext}"
+    },
+    "portable": {
+      "artifactName": "Eredmeny-beiro-Hordozhato.${ext}"
+    }
+  }
+}
