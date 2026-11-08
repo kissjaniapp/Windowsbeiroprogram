@@ -5,3 +5,7 @@ contextBridge.exposeInMainWorld('googleSync', {
   enqueue: (event) => ipcRenderer.invoke('google-sync:enqueue', event),
   retry: () => ipcRenderer.invoke('google-sync:retry')
 });
+
+contextBridge.exposeInMainWorld('arduinoWifi', {
+  status: () => ipcRenderer.invoke('arduino-wifi:status')
+});
