@@ -1,12 +1,36 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { createGoogleSync } = require('./google-sync');
 
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
 
 let win;
 let openTimer = null;
+let googleSync = null;
+
+function initGoogleSync() {
+  googleSync = createGoogleSync({
+    dataDir: app.getPath('userData'),
+    encryptKey: secret => {
+      if (!safeStorage.isEncryptionAvailable()) {
+        throw new Error('A Windows titkosított kulcstárolása nem érhető el.');
+      }
+      return safeStorage.encryptString(secret).toString('base64');
+    },
+    decryptKey: stored => safeStorage.decryptString(Buffer.from(stored, 'base64'))
+  });
+  ipcMain.handle('google-sync:status', () => googleSync.getStatus());
+  ipcMain.handle('google-sync:config', (_event, config) => googleSync.saveConfig(config));
+  ipcMain.handle('google-sync:enqueue', (_event, event) => googleSync.enqueue(event));
+  ipcMain.handle('google-sync:retry', () => googleSync.flush());
+
+  // Az Arduino helyi Wi-Fi-jén lehet internet nélkül dolgozni.
+  // A távoli Google-végpontot az online jelzőtől függetlenül próbáljuk elérni.
+  setInterval(() => { void googleSync.flush(); }, 15000).unref();
+  void googleSync.flush(); // újraindítás után is megmaradt versenyek
+}
 
 function createWindow() {
   Menu.setApplicationMenu(null);
@@ -19,7 +43,10 @@ function createWindow() {
     icon: path.join(__dirname, 'icon.png'),
     backgroundColor: '#0f0f1a',
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, spellcheck: false }
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true, nodeIntegration: false, spellcheck: false
+    }
   });
   win.loadFile(path.join(__dirname, 'index.html'));
 
@@ -36,12 +63,18 @@ function createWindow() {
     });
   });
 
-  // külső linkek a böngészőben nyíljanak
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  // Külső linkek csak a rendszer böngészőjében nyílnak meg.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
+    return { action: 'deny' };
+  });
 }
 
 app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
 });
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  initGoogleSync();
+  createWindow();
+});
 app.on('window-all-closed', () => app.quit());
