@@ -104,7 +104,7 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
     void flush();
     return getStatus();
   }
-  async function flush() {
+  async function doFlush() {
     if (sending || !queue.length) return getStatus();
     const cfg = getConfig();
     if (!cfg.url || !cfg.encryptedKey) {
@@ -150,6 +150,12 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
       changed();
     }
     return getStatus();
+  }
+  // Az egyszerre érkező időzítős, kézi és online-indítások ugyanazt a kérést várják.
+  let inFlight = null;
+  function flush() {
+    if (!inFlight) inFlight = doFlush().finally(() => { inFlight = null; });
+    return inFlight;
   }
   return {getStatus, saveConfig, enqueue, flush};
 }
