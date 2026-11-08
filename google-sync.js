@@ -33,11 +33,24 @@ function validateEvent(event) {
         ![r.points, r.totalTime, r.result].every(n => typeof n === 'number' && Number.isFinite(n))) {
       throw new Error('Érvénytelen versenyzői eredmény.');
     }
-    return {name, heat:r.heat, points:r.points, totalTime:r.totalTime, result:r.result};
+    const rounds = r.rounds === undefined ? [] : r.rounds;
+    if (!Array.isArray(rounds) || rounds.length > 1000) throw new Error('Érvénytelen köradatok.');
+    const cleanRounds = rounds.map(x => {
+      if (!x || !['gyak','eles'].includes(x.phase) || !Number.isInteger(x.round) || x.round < 1 || x.round > 1000 ||
+          ![x.points,x.time,x.result].every(n => typeof n === 'number' && Number.isFinite(n)) || typeof x.valid !== 'boolean') {
+        throw new Error('Érvénytelen köradatok.');
+      }
+      return {phase:x.phase, round:x.round, points:x.points, time:x.time, result:x.result, valid:x.valid};
+    });
+    return {name, heat:r.heat, points:r.points, totalTime:r.totalTime, result:r.result, ...(r.rounds === undefined ? {} : {rounds:cleanRounds})};
   });
+  const location = event.location === undefined ? '' : event.location;
+  const eventType = event.eventType === undefined ? '' : event.eventType;
+  if (typeof location !== 'string' || location.length > 200 || !['','verseny','gyakorlas'].includes(eventType)) throw new Error('Érvénytelen helyszín vagy eseménytípus.');
   return {
     eventId:event.eventId, date:event.date, mode:event.mode,
-    usedTime:event.usedTime, createdAt:event.createdAt, results
+    usedTime:event.usedTime, ...(event.location === undefined ? {} : {location:location.trim()}),
+    ...(event.eventType === undefined ? {} : {eventType}), createdAt:event.createdAt, results
   };
 }
 
@@ -136,6 +149,11 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
         if (!ack || ack.ok !== true || String(ack.eventId) !== event.eventId) {
           throw new Error('A Google Táblázat nem igazolta vissza az eredményt.');
         }
+        // Régi fogadó eldobná az új mezőket, ezért csak a részletes formátumot
+        // igazoló válasz esetén törölhető az új verseny a tartós sorból.
+        if ((event.eventType || event.location || event.results.some(r => r.rounds && r.rounds.length)) && ack.schemaVersion !== 2) {
+          throw new Error('A Google-fogadó frissítése szükséges.');
+        }
         const next = queue.slice(1);
         writeJSON(queueFile, next);
         queue = next;
@@ -143,8 +161,10 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
         changed(queue.length ? 'Eredmény feltöltve, következő küldése…' :
           '✅ Minden versenyeredmény visszaigazoltan feltöltve.');
       }
-    } catch (_) {
-      changed('Nincs elérhető Google-kapcsolat, vagy hibás válasz érkezett. Az eredmények helyben várakoznak; automatikusan újrapróbáljuk.');
+    } catch (error) {
+      changed(error && error.message === 'A Google-fogadó frissítése szükséges.' ?
+        'A Google-fogadó frissítése szükséges a részletes adatokhoz. Az eredmények helyben várakoznak.' :
+        'Nincs elérhető Google-kapcsolat, vagy hibás válasz érkezett. Az eredmények helyben várakoznak; automatikusan újrapróbáljuk.');
     } finally {
       sending = false;
       changed();
