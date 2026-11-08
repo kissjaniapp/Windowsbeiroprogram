@@ -25,8 +25,9 @@ Az URL és a kulcs csak a GitHub Actions titkos környezetéből
 kerülhet a \`embedded-google-config.json\` fájlba az építés során.
 
 A fájlt a \`.gitignore\` nem engedi véletlenül feltölteni. Ha a titkok
-nincsenek beállítva, az új build inkább hibával leáll, mint hogy
-működésképtelen, kulcs nélküli telepítőt adjon.
+nincsenek beállítva, a tesztek sikeresen lefutnak, de a telepítő
+összeállítása kihagyásra kerül. Így nem készül működésképtelen,
+kulcs nélküli EXE, és a tesztek állapota nem jelenik meg hibásként.
 
 ## Telepítő készítése
 
