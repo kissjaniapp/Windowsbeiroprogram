@@ -58,3 +58,14 @@ hitelesítés szükséges.
 Arduino Wi-Fi-adatprotokoll vagy firmware-forrás, ezért a program
 hardveres időfogadását nem módosítottuk. A jelen módosítás az
 eredménybevitelt és automatikus Google-feltöltést érinti.
+
+
+## VersenyIdomero Wi-Fi állapotjelző (Windows 1.2)
+
+Az alkalmazás fejléce alatt az összes képernyőn látható állapotjelző:
+- **Zöld pötty:** a Windows a \`VersenyIdomero\` SSID-hez csatlakozott (internet nem szükséges).
+- **Piros pötty:** másik Wi-Fi-hez csatlakozott, nem csatlakozik, vagy a Wi-Fi állapota nem olvasható.
+- A kapcsolat állapotát a program 4 másodpercenként frissíti, a Windows \`netsh wlan show interfaces\` lekérdezésével.
+
+A zöld pötty **csak Wi-Fi-hálózati kapcsolatot** igazol. Az Arduino érzékelőjétől származó START/STOP üzenetek fogadását még nem valósítja meg.
+Az automatikus stopperhez az Arduino firmware vagy a hozzá kapcsolódó Android szenzorvevő kódja szükséges. Így nem kezdünk tévesen időt mérni csupán az SSID alapján.
