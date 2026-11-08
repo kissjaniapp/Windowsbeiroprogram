@@ -1,0 +1,5 @@
+node_modules/
+dist/
+embedded-google-config.json
+.DS_Store
+*.log
