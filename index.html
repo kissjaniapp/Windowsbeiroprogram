@@ -49,16 +49,7 @@ td{padding:7px 4px}tr:nth-child(even){background:rgba(255,255,255,.03)}
   <label style="margin-top:12px">Számolás</label>
   <div class="g2"><button class="m on" id="t-ido" onclick="setTime(true)">Pont + Idő</button><button class="m" id="t-pont" onclick="setTime(false)">Csak pont</button></div>
   <div class="row"><button class="p" onclick="start()">▶ Kezdés</button></div>
-  <details style="margin-top:14px;border-top:1px solid var(--bd);padding-top:12px">
-    <summary style="color:var(--ac2);font-weight:700;cursor:pointer">☁️ Google Táblázat – automatikus eredményküldés</summary>
-    <label style="margin-top:10px">Google Apps Script webalkalmazás URL-je</label>
-    <input id="googleUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off">
-    <label style="margin-top:8px">Közös kulcs (a Google Apps Scriptben megadott kulcs)</label>
-    <input id="googleKey" type="password" placeholder="Korábban mentett kulcs megtartásához hagyd üresen" autocomplete="off">
-    <div class="row"><button class="n" type="button" onclick="saveGoogleConfig()">Beállítások mentése</button><button class="s" type="button" onclick="retryGoogleSync()">Újraküldés ellenőrzése</button></div>
-    <div class="mu" id="googleSetupStatus" role="status" aria-live="polite" style="margin-top:8px">Helyi eredmények tárolása kész.</div>
-    <div class="mu" style="margin-top:6px">A Google-adatokat csak egyszer kell beállítani. Az eredmény internet nélkül is elmentődik, és a program futása közben vagy a következő indításakor automatikusan feltöltődik.</div>
-  </details>
+  <div class="mu" id="googleSetupStatus" role="status" aria-live="polite" style="margin-top:10px">☁️ Google Táblázat – automatikus szinkronizálás. A kapcsolat adatai a Windows programba vannak beépítve.</div>
 </div>
 
 <div id="run" class="hidden">
@@ -110,7 +101,7 @@ function showGoogleStatus(s) {
   const pending = s && s.pendingCount || 0;
   const message = s && s.lastMessage || (s && s.configured ?
     'Automatikus Google-küldés beállítva.' :
-    'Google-küldés nincs beállítva; a helyi eredmények várakoznak.');
+    'A beépített Google-kapcsolat nem érhető el. Ellenőrizd a telepítő összeállítását. Az eredmények helyben maradnak.');
   const line = (pending ? '📤 Várakozó versenyek: ' + pending + '. ' : '') + message;
   $('googleSetupStatus').textContent = line;
   $('googleStatus').textContent = line;
@@ -121,34 +112,7 @@ async function refreshGoogleStatus() {
   catch (_) { $('googleSetupStatus').textContent = 'A helyi tároló nem érhető el.'; }
 }
 async function initGoogleConfig() {
-  if (!window.googleSync) {
-    $('googleSetupStatus').textContent = 'A Windowsos programban nem érhető el a feltöltés.';
-    return;
-  }
-  try {
-    const status = await window.googleSync.getStatus();
-    $('googleUrl').value = status.url || '';
-    showGoogleStatus(status);
-  } catch (error) {
-    $('googleSetupStatus').textContent = 'A Google-beállítások nem olvashatók: ' + error.message;
-  }
-}
-async function saveGoogleConfig() {
-  if (!window.googleSync) return;
-  try {
-    const status = await window.googleSync.saveConfig({
-      url:$('googleUrl').value.trim(), key:$('googleKey').value.trim()
-    });
-    $('googleKey').value = '';
-    showGoogleStatus(status);
-  } catch (error) {
-    $('googleSetupStatus').textContent = 'Mentési hiba: ' + error.message;
-  }
-}
-async function retryGoogleSync() {
-  if (!window.googleSync) return;
-  try { showGoogleStatus(await window.googleSync.retry()); }
-  catch (error) { $('googleSetupStatus').textContent = 'Újrapróbálási hiba: ' + error.message; }
+  await refreshGoogleStatus();
 }
 function makeGooglePayload() {
   const now = new Date();

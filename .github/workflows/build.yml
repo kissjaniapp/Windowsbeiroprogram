@@ -1,4 +1,4 @@
-name: Windows telepito epitese
+name: Windows alkalmazas ellenorzese es telepito epitese
 on:
   push:
   workflow_dispatch:
@@ -6,16 +6,40 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install
       - run: npm test
-      - run: npm run dist
+      - name: Google kulcsok meglétének ellenőrzése
+        id: google
+        shell: pwsh
+        env:
+          GOOGLE_WEBAPP_URL: ${{ secrets.GOOGLE_WEBAPP_URL }}
+          GOOGLE_SHARED_KEY: ${{ secrets.GOOGLE_SHARED_KEY }}
+        run: |
+          if (-not [string]::IsNullOrWhiteSpace($env:GOOGLE_WEBAPP_URL) -and -not [string]::IsNullOrWhiteSpace($env:GOOGLE_SHARED_KEY)) {
+            "available=true" >> $env:GITHUB_OUTPUT
+            Write-Host "A beépíthető Google-beállítások elérhetők."
+          } else {
+            "available=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice title=Telepítő kihagyva::A GOOGLE_WEBAPP_URL és GOOGLE_SHARED_KEY titkok még nincsenek beállítva. A tesztek sikeresek, de kulcs nélküli EXE nem készül. Settings / Secrets and variables / Actions."
+          }
+      - name: Beépített Google kapcsolati adatok előállítása
+        if: steps.google.outputs.available == 'true'
+        run: node scripts/pack-google-config.js
+        env:
+          GOOGLE_WEBAPP_URL: ${{ secrets.GOOGLE_WEBAPP_URL }}
+          GOOGLE_SHARED_KEY: ${{ secrets.GOOGLE_SHARED_KEY }}
+      - name: Windows telepítő és hordozható EXE készítése
+        if: steps.google.outputs.available == 'true'
+        run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - uses: actions/upload-artifact@v4
+      - name: Windows telepítők feltöltése
+        if: steps.google.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: Eredmeny-beiro-Windows
           path: dist/*.exe
