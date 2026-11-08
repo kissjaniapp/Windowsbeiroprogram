@@ -21,7 +21,7 @@ test('a teljes verseny mindkét futamának körei és helyszíne elküldhetők',
 });
 test('a régi, helyszín nélküli várakozó adatok olvashatók',()=>{
   const event={eventId:'verseny-123',date:'2026-11-08',mode:'eles',usedTime:false,createdAt:'2026-11-08T12:00:00Z',results:[{name:'A',heat:1,points:1,totalTime:0,result:1}]};
-  const validated=validateEvent(event);assert.equal(validated.location,'');assert.deepEqual(validated.results[0].rounds,[]);
+  const validated=validateEvent(event);assert.deepEqual(validated,event);
 });
 test('a régi Google-fogadó nem igazolhatja vissza az új részletek mentését',async()=>{
   const path=require('node:path');const dir=fs.mkdtempSync(path.join(__dirname,'eredmeny-sync-'));
