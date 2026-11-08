@@ -47,10 +47,14 @@ function validateEvent(event) {
   const location = event.location === undefined ? '' : event.location;
   const eventType = event.eventType === undefined ? '' : event.eventType;
   if (typeof location !== 'string' || location.length > 200 || !['','verseny','gyakorlas'].includes(eventType)) throw new Error('Érvénytelen helyszín vagy eseménytípus.');
+  if (event.schemaVersion !== undefined && event.schemaVersion !== 2) throw new Error('Érvénytelen adatverzió.');
+  if (event.revisionId !== undefined && (typeof event.revisionId !== 'string' || !/^\d{1,16}-[a-z0-9]{1,32}$/.test(event.revisionId))) throw new Error('Érvénytelen eredményverzió.');
+  if (event.schemaVersion === 2 && !event.revisionId) throw new Error('Hiányzó eredményverzió.');
   return {
     eventId:event.eventId, date:event.date, mode:event.mode,
     usedTime:event.usedTime, ...(event.location === undefined ? {} : {location:location.trim()}),
-    ...(event.eventType === undefined ? {} : {eventType}), createdAt:event.createdAt, results
+    ...(event.eventType === undefined ? {} : {eventType}), ...(event.schemaVersion === undefined ? {} : {schemaVersion:event.schemaVersion}),
+    ...(event.revisionId === undefined ? {} : {revisionId:event.revisionId}), createdAt:event.createdAt, results
   };
 }
 
@@ -109,8 +113,13 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
   }
   function enqueue(event) {
     const payload = validateEvent(event);
-    if (queue.some(x => x.eventId === payload.eventId)) return getStatus();
-    const next = queue.concat([payload]);
+    const existing = queue.find(x => x.eventId === payload.eventId);
+    if (existing) {
+      const oldRevision = Number((existing.revisionId || '').split('-')[0]) || 0;
+      const newRevision = Number((payload.revisionId || '').split('-')[0]) || 0;
+      if (newRevision <= oldRevision) return getStatus();
+    }
+    const next = existing ? queue.map(x => x.eventId === payload.eventId ? payload : x) : queue.concat([payload]);
     writeJSON(queueFile, next); // előbb tartós mentés, utána hálózati művelet
     queue = next;
     changed('Versenyeredmény biztonságosan mentve; feltöltésre vár.');
@@ -151,10 +160,16 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
         }
         // Régi fogadó eldobná az új mezőket, ezért csak a részletes formátumot
         // igazoló válasz esetén törölhető az új verseny a tartós sorból.
-        if ((event.eventType || event.location || event.results.some(r => r.rounds && r.rounds.length)) && ack.schemaVersion !== 2) {
+        if ((event.schemaVersion === 2 || event.eventType || event.location || event.results.some(r => r.rounds && r.rounds.length)) && ack.schemaVersion !== 2) {
           throw new Error('A Google-fogadó frissítése szükséges.');
         }
-        const next = queue.slice(1);
+        if (ack.stale === true) {
+          // Ha közben újabb adat került a sorba, azt kell elküldeni.
+          if (queue[0] && queue[0].eventId === event.eventId && queue[0].revisionId !== event.revisionId) continue;
+          throw new Error('Újabb eredmény található a Google Táblázatban.');
+        }
+        // Közben egy módosított eredmény is bekerülhetett a sorba: azt nem töröljük.
+        const next = queue.filter(item => !(item.eventId === event.eventId && item.revisionId === event.revisionId));
         writeJSON(queueFile, next);
         queue = next;
         lastSuccessAt = new Date().toISOString();
@@ -162,7 +177,9 @@ function createGoogleSync({dataDir, encryptKey, decryptKey, fetchImpl=globalThis
           '✅ Minden versenyeredmény visszaigazoltan feltöltve.');
       }
     } catch (error) {
-      changed(error && error.message === 'A Google-fogadó frissítése szükséges.' ?
+      changed(error && error.message === 'Újabb eredmény található a Google Táblázatban.' ?
+        'A Google Táblázatban újabb eredmény van. Az itteni változat helyben várakozik; ellenőrizd az eltérést.' :
+        error && error.message === 'A Google-fogadó frissítése szükséges.' ?
         'A Google-fogadó frissítése szükséges a részletes adatokhoz. Az eredmények helyben várakoznak.' :
         'Nincs elérhető Google-kapcsolat, vagy hibás válasz érkezett. Az eredmények helyben várakoznak; automatikusan újrapróbáljuk.');
     } finally {

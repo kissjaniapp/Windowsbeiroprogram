@@ -110,7 +110,7 @@ td{padding:7px 4px}tr:nth-child(even){background:rgba(255,255,255,.03)}
 
 <script>
 const GK=3,EK=9;
-let FN=[4],futams=[],fi=0,names=[],mode='both',ph='gyak',ri=0,ci=0,useTime=true,D={gyak:[],eles:[]},autoSentForRun=false,googleEventId=null;
+let FN=[4],futams=[],fi=0,names=[],mode='both',ph='gyak',ri=0,ci=0,useTime=true,D={gyak:[],eles:[]},googleEventId=null,googleLastSignature=null,googleRevisionTime=0;
 const $=id=>document.getElementById(id),f2=x=>x.toFixed(2),eq=(a,b)=>Math.abs(a-b)<1e-9;
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nm=i=>names[i]||`Versenyző ${i+1}`, mx=()=>ph=='gyak'?GK:EK;
@@ -202,24 +202,28 @@ function makeGooglePayload() {
     });
   });
   return {
-    eventId:googleEventId,
+    schemaVersion:2, eventId:googleEventId,
     date:$('datum').value || now.toISOString().slice(0,10),
     mode:mode, usedTime:!!useTime, location:$('eventLocation').value.trim(), eventType:$('eventType').value, createdAt:now.toISOString(), results
   };
 }
 async function queueGoogleCompetition() {
-  if (autoSentForRun || !window.googleSync) return;
-  autoSentForRun = true;
+  if (!window.googleSync) return;
   const payload = makeGooglePayload();
   if (!payload.results.length) {
-    autoSentForRun = false; $('googleStatus').textContent = 'Nincs elküldhető eredmény.';
+    $('googleStatus').textContent = 'Nincs elküldhető eredmény.';
     return;
   }
+  const signature=JSON.stringify([payload.date,payload.mode,payload.location,payload.eventType,payload.usedTime,payload.results]);
+  if(signature===googleLastSignature)return;
+  googleRevisionTime=Math.max(Date.now(),googleRevisionTime+1);
+  payload.revisionId=googleRevisionTime+'-'+Math.random().toString(36).slice(2,9);
+  googleLastSignature=signature;
   $('googleStatus').textContent = 'A versenyeredmények helyi mentése folyamatban…';
   try {
     showGoogleStatus(await window.googleSync.enqueue(payload));
   } catch (error) {
-    autoSentForRun = false;
+    if(googleLastSignature===signature)googleLastSignature=null;
     $('googleStatus').textContent = 'Nem sikerült elmenteni a versenyeredményt: ' + error.message;
   }
 }
@@ -246,7 +250,7 @@ function show(id){['setup','run','done'].forEach(s=>$(s).classList.toggle('hidde
 function start(){
   rememberLocation();
   sensorNewCompetition();
-  autoSentForRun=false;googleEventId=null;
+  googleEventId=null;googleLastSignature=null;googleRevisionTime=0;
   futams=FN.map((n,f)=>({names:[...document.querySelectorAll(`.nmi[data-f="${f}"]`)].map(e=>e.value.trim()),D:{gyak:[],eles:[]},completed:false}));
   load(0);ph=mode=='both'?'gyak':'eles';ri=0;ci=0;show('run');render();
 }
