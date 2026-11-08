@@ -86,3 +86,11 @@ test('Blank secret in settings preserves the encrypted previous key', async (t) 
   const after=JSON.parse(fs.readFileSync(path.join(x.dir,'google-sync-config.json'),'utf8'));
   assert.equal(before.encryptedKey,after.encryptedKey);
 });
+
+test('Windows renderer inline JavaScript parses after the sync UI addition', () => {
+  const vm = require('node:vm');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const match = html.match(/<script>([\s\S]*?)<\/script>/);
+  assert.ok(match, 'Expected original inline application JavaScript');
+  assert.doesNotThrow(() => new vm.Script(match[1], {filename:'index.html'}));
+});
