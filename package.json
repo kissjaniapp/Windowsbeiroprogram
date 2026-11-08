@@ -26,7 +26,8 @@
       "icon.ico",
       "xlsx.full.min.js",
       "embedded-google-config.json",
-      "wifi-status.js"
+      "wifi-status.js",
+      "sensor-http.js"
     ],
     "win": {
       "icon": "icon.ico",

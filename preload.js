@@ -9,3 +9,7 @@ contextBridge.exposeInMainWorld('googleSync', {
 contextBridge.exposeInMainWorld('arduinoWifi', {
   status: () => ipcRenderer.invoke('arduino-wifi:status')
 });
+
+contextBridge.exposeInMainWorld('arduinoSensor', {
+  get: (path) => ipcRenderer.invoke('arduino-sensor:get', path)
+});

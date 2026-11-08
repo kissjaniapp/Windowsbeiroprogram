@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { createGoogleSync } = require('./google-sync');
 const { createWifiStatus } = require('./wifi-status');
+const { sensorGet } = require('./sensor-http');
 
 const lock = app.requestSingleInstanceLock();
 if (!lock) app.quit();
@@ -34,6 +35,7 @@ function initGoogleSync() {
     }
   }
   ipcMain.handle('arduino-wifi:status', createWifiStatus());
+  ipcMain.handle('arduino-sensor:get', (_event, requestPath) => sensorGet(requestPath));
   ipcMain.handle('google-sync:status', () => googleSync.getStatus());
   ipcMain.handle('google-sync:enqueue', (_event, event) => googleSync.enqueue(event));
   ipcMain.handle('google-sync:retry', () => googleSync.flush());
