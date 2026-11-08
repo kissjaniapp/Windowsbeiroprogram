@@ -12,6 +12,11 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm test
+      - name: Beépített Google kapcsolati adatok előállítása
+        run: node scripts/pack-google-config.js
+        env:
+          GOOGLE_WEBAPP_URL: ${{ secrets.GOOGLE_WEBAPP_URL }}
+          GOOGLE_SHARED_KEY: ${{ secrets.GOOGLE_SHARED_KEY }}
       - run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
