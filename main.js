@@ -21,8 +21,18 @@ function initGoogleSync() {
     },
     decryptKey: stored => safeStorage.decryptString(Buffer.from(stored, 'base64'))
   });
+  // A beállításokat a GitHub Actions a Windows EXE-be csomagolja,
+  // így a verseny helyszínén semmilyen URL-t vagy kulcsot nem kell megadni.
+  const bundled = path.join(__dirname, 'embedded-google-config.json');
+  if (fs.existsSync(bundled)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(bundled, 'utf8'));
+      googleSync.saveConfig({url: cfg.url, key: cfg.key});
+    } catch (err) {
+      console.error('A beépített Google-beállítások nem olvashatók:', err.message);
+    }
+  }
   ipcMain.handle('google-sync:status', () => googleSync.getStatus());
-  ipcMain.handle('google-sync:config', (_event, config) => googleSync.saveConfig(config));
   ipcMain.handle('google-sync:enqueue', (_event, event) => googleSync.enqueue(event));
   ipcMain.handle('google-sync:retry', () => googleSync.flush());
 
